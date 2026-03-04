@@ -3,7 +3,7 @@
 # 由 OpenClaw 每週維護 cron 呼叫，或手動執行
 
 SKILL_DIR="$HOME/.openclaw/skills/parking_query"
-REPO_URL="https://github.com/Harperbot/parking-query-skill"
+REPO_URL="https://github.com/Harperbot/openclaw-parking-query"
 CURRENT="$SKILL_DIR/parking_query.py"
 REMOTE="$REPO_URL/raw/main/parking_query.py"
 
