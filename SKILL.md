@@ -1,3 +1,8 @@
+---
+name: 台灣即時停車查詢
+description: 傳送定位點或 Google Maps 網址，查詢附近台灣停車場即時空位，附 Apple Maps / Google Maps 一鍵導航連結。支援 Telegram、LINE、iMessage。
+---
+
 # parking_query
 
 透過 Telegram 或 iMessage 傳送定位點或 Google Maps 網址，即可查詢附近台灣停車場的即時空位，並附上一鍵導航連結。
