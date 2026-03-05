@@ -262,15 +262,16 @@ def find_parking(lat, lon, mode):
 
     for i, r in enumerate(results, 1):
         apple, google = nav_links(r["lat"], r["lon"])
-        print(f"{i}. {r['name']}")
+        print(f"### {i}. {r['name']}")
         if mode == "realtime":
-            print(f"   空位：{r['spaces']} 個　距離：{int(r['dist'])} 公尺")
+            print(f"**空位**：`{r['spaces']}` 個 ｜ **距離**：`{int(r['dist'])}` 公尺")
         else:
-            print(f"   距離：{int(r['dist'])} 公尺")
+            print(f"**距離**：`{int(r['dist'])}` 公尺")
         if r["address"]:
-            print(f"   {r['address']}")
-        print(f"   🍎 Apple Maps → {apple}")
-        print(f"   🗺 Google Maps → {google}")
+            print(f"📍 {r['address']}")
+        
+        # 轉換為 Markdown inline links，取代長網址
+        print(f"[🍎 Apple Maps 導航]({apple}) ｜ [🗺️ Google Maps 導航]({google})")
         print()
 
 # ── CLI ───────────────────────────────────────────────────────────────────────

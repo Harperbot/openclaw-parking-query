@@ -1,0 +1,39 @@
+{
+  "name": "parking-query",
+  "version": "1.2.0",
+  "description": "即時尋找附近有空位的停車場，並提供一鍵導航連結。",
+  "author": "Harperbot",
+  "type": "executable",
+  "executable": {
+    "command": "python3",
+    "args": ["parking_query.py"]
+  },
+  "configSchema": {
+    "type": "object",
+    "properties": {
+      "TDX_CLIENT_ID": {
+        "type": "string",
+        "description": "TDX API Client ID"
+      },
+      "TDX_CLIENT_SECRET": {
+        "type": "string",
+        "description": "TDX API Client Secret"
+      }
+    }
+  },
+  "tools": [
+    {
+      "name": "find_parking",
+      "description": "透過經緯度或 Google Maps 網址，查詢附近有空位的停車場。會回傳包含導航連結的結果。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "--lat": { "type": "string", "description": "目標地點的緯度 (例如: 25.033)" },
+          "--lon": { "type": "string", "description": "目標地點的經度 (例如: 121.565)" },
+          "--url": { "type": "string", "description": "Google Maps 短網址或完整網址 (若無經緯度時使用)" },
+          "--mode": { "type": "string", "enum": ["realtime", "future"], "description": "realtime: 現在要停車(顯示空位)；future: 未來要停車(只顯示位置)" }
+        }
+      }
+    }
+  ]
+}
