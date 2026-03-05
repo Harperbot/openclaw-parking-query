@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# version: 1.0.0
+# version: 1.2.0
 """
 停車場查詢 skill — 全台 TDX 即時停車資料
 用法:
@@ -23,7 +23,7 @@ CITIES = [
     ("Keelung",          25.06, 25.22, 121.62, 121.83),
     ("Hsinchu",          24.76, 24.87, 120.92, 121.07),
     ("Chiayi",           23.43, 23.52, 120.39, 120.54),
-    ("Taipei",           24.96, 25.21, 121.44, 121.67),
+    ("Taipei",           24.96, 25.21, 121.50, 121.67),
     ("Taoyuan",          24.55, 25.08, 120.97, 121.46),
     ("Taichung",         24.01, 24.43, 120.51, 121.10),
     ("Tainan",           22.84, 23.48, 120.06, 120.78),
@@ -119,15 +119,44 @@ def fetch_availability(city, token):
     r.raise_for_status()
     return r.json()
 
+# ── Nominatim 地址反解（URL 無座標時的 fallback）────────────────────────────
+def geocode_nominatim(address):
+    """逐步縮短地址直到 Nominatim 找到結果（過濾郵遞區號和國名）"""
+    parts = [p.strip() for p in re.split(r'[,，]', address) if p.strip()]
+    # 過濾純數字（郵遞區號）和國名
+    parts = [p for p in parts if not re.match(r'^\d+$', p) and p.lower() not in ("taiwan",)]
+    for n in range(len(parts), max(0, len(parts) - 3), -1):
+        candidate = ", ".join(parts[:n])
+        if not candidate:
+            continue
+        try:
+            r = requests.get(
+                "https://nominatim.openstreetmap.org/search",
+                params={"q": candidate, "format": "json", "limit": 1},
+                headers={"User-Agent": "OpenClaw-parking_query/1.0"},
+                timeout=10,
+            )
+            results = r.json()
+            if results:
+                return float(results[0]["lat"]), float(results[0]["lon"])
+        except Exception as e:
+            print(f"DEBUG: Nominatim geocoding failed: {e}", file=sys.stderr)
+            break
+    return None, None
+
 # ── Google Maps URL 解析 ──────────────────────────────────────────────────────
 def resolve_google_url(url):
-    # 短網址先 follow redirect
-    if "goo.gl" in url or "maps.app" in url:
+    from urllib.parse import unquote_plus
+
+    # 短網址先 follow redirect（用 GET 才能完整 follow Google 的 redirect chain）
+    if "goo.gl" in url or "maps.app.goo.gl" in url:
         try:
-            r = requests.head(url, allow_redirects=True,
-                              headers={"User-Agent": "Mozilla/5.0"}, timeout=10)
+            r = requests.get(url, allow_redirects=True, stream=True,
+                             headers={"User-Agent": "Mozilla/5.0"}, timeout=10)
+            r.close()
             url = r.url
-        except Exception:
+        except Exception as e:
+            print(f"DEBUG: Short URL redirect failed: {e}", file=sys.stderr)
             pass
 
     # 依序嘗試各種座標格式
@@ -140,6 +169,14 @@ def resolve_google_url(url):
         m = re.search(pattern, url)
         if m:
             return float(m.group(1)), float(m.group(2))
+
+    # URL 無座標（如 ?q=地址&ftid=...）→ 用 Nominatim 反解 q= 地址
+    m = re.search(r'[?&]q=([^&]+)', url)
+    if m:
+        address = unquote_plus(m.group(1))
+        if address and not re.match(r'^-?\d+\.?\d*,-?\d+\.?\d*$', address):
+            return geocode_nominatim(address)
+
     return None, None
 
 # ── 導航連結 ──────────────────────────────────────────────────────────────────
@@ -171,12 +208,18 @@ def find_parking(lat, lon, mode):
     city = detect_city(lat, lon) or "未知地區"
     avail_map = {}
     if mode == "realtime":
-        if city != "未知地區":
+        # 台北/新北相鄰，若偵測到台北但找不到資料，一併查新北（反之亦然）
+        cities_to_try = [city] if city != "未知地區" else []
+        if city == "Taipei":
+            cities_to_try.append("NewTaipei")
+        elif city == "NewTaipei":
+            cities_to_try.append("Taipei")
+        for c in cities_to_try:
             try:
-                for a in fetch_availability(city, token).get("ParkingAvailabilities", []):
+                for a in fetch_availability(c, token).get("ParkingAvailabilities", []):
                     avail_map[a["CarParkID"]] = a
             except Exception:
-                pass  # availability 失敗不影響 future mode 回傳
+                pass
 
     results = []
     for p in parks:
@@ -242,10 +285,10 @@ def main():
     lat = float(args.lat) if args.lat.strip() else None
     lon = float(args.lon) if args.lon.strip() else None
 
-    if args.url and (lat is None or lon is None):
+    if args.url:
         lat, lon = resolve_google_url(args.url)
-        if lat is None:
-            sys.exit("❌ 無法從 URL 解析座標，請直接傳送定位點")
+        if lat is None or lon is None:
+            sys.exit("❌ 無法從 URL 解析座標，請直接傳送定位點或完整 Google Maps 網址")
 
     if lat is None or lon is None:
         sys.exit("❌ 請提供 --lat / --lon 或 --url")
